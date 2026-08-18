@@ -18,14 +18,7 @@ export default async function handler(req, res) {
             }),
         });
 
-        if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            console.error("ElevenLabs Error Details:", response.status, errorData);
-            return res.status(response.status).json({ 
-                error: 'ElevenLabs API Error', 
-                details: errorData 
-            });
-        }
+        if (!response.ok) throw new Error('ElevenLabs request failed');
 
         const arrayBuffer = await response.arrayBuffer();
         res.setHeader('Content-Type', 'audio/mpeg');
