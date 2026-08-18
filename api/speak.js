@@ -4,7 +4,6 @@ export default async function handler(req, res) {
     try {
         const { text } = req.body;
         const API_KEY = process.env.ELEVENLABS_API_KEY;
-        // The Voice ID for your AI voice
         const VOICE_ID = "JBFqnCBsd6RMkjVDRZzb"; 
 
         const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${VOICE_ID}`, {
@@ -19,7 +18,14 @@ export default async function handler(req, res) {
             }),
         });
 
-        if (!response.ok) throw new Error('ElevenLabs request failed');
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            console.error("ElevenLabs Error Details:", response.status, errorData);
+            return res.status(response.status).json({ 
+                error: 'ElevenLabs API Error', 
+                details: errorData 
+            });
+        }
 
         const arrayBuffer = await response.arrayBuffer();
         res.setHeader('Content-Type', 'audio/mpeg');
