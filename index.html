@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web Talk-Back Text-To-Speech</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#4f46e5">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%); }
+        .glass { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); }
+        input[type=range]::-webkit-slider-runnable-track { background: #e2e8f0; height: 6px; border-radius: 3px; }
+        input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 18px; width: 18px; background: #4f46e5; border-radius: 50%; margin-top: -6px; }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4">
+
+    <div class="w-full max-w-xl glass p-6 md:p-8 rounded-[2rem] shadow-2xl border border-white">
+        <header class="text-center mb-8">
+            <div class="bg-indigo-600 w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-indigo-200">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                </svg>
+            </div>
+            <h1 class="text-2xl font-800 text-gray-900 tracking-tight">Web Talk-Back Text-To-Speech</h1>
+            <p class="text-sm text-gray-500 font-medium">Professional Text-to-Speech Engine</p>
+        </header>
+
+        <div class="space-y-5">
+            <div>
+                <label class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 block">Voice Engine</label>
+                <select id="voiceSelect" class="w-full bg-gray-50 border-0 p-3 rounded-xl ring-1 ring-gray-200 focus:ring-2 focus:ring-indigo-500 transition-all outline-none text-sm"></select>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4">
+                <div class="bg-gray-50 p-3 rounded-xl ring-1 ring-gray-200">
+                    <label class="text-[10px] font-bold text-gray-400 uppercase block mb-1">Speed: <span id="rateValue" class="text-indigo-600">1.0</span></label>
+                    <input type="range" id="rateInput" min="0.5" max="2" value="1" step="0.1" class="w-full h-2 accent-indigo-600">
+                </div>
+                <div class="bg-gray-50 p-3 rounded-xl ring-1 ring-gray-200">
+                    <label class="text-[10px] font-bold text-gray-400 uppercase block mb-1">Pitch: <span id="pitchValue" class="text-indigo-600">1.0</span></label>
+                    <input type="range" id="pitchInput" min="0" max="2" value="1" step="0.1" class="w-full h-2 accent-indigo-600">
+                </div>
+            </div>
+
+            <div class="relative">
+                <textarea id="textInput" rows="5" class="w-full p-4 bg-gray-50 border-0 rounded-2xl ring-1 ring-gray-200 focus:ring-2 focus:ring-indigo-500 transition-all outline-none placeholder:text-gray-400 text-gray-700" placeholder="Paste your text here..."></textarea>
+                <div id="charCount" class="absolute bottom-3 right-4 text-[10px] font-bold text-gray-400 uppercase">0 characters</div>
+            </div>
+
+            <div class="flex flex-col gap-3">
+                <button id="speakButton" class="w-full py-4 bg-indigo-600 text-white font-bold rounded-2xl shadow-lg shadow-indigo-100 hover:bg-indigo-700 hover:-translate-y-0.5 transition-all active:scale-95 flex items-center justify-center gap-2">
+                    Speak Text
+                </button>
+                <div class="grid grid-cols-2 gap-3">
+                    <button id="stopButton" disabled class="py-3 bg-white text-red-500 font-bold rounded-xl ring-1 ring-red-100 hover:bg-red-50 transition-all disabled:opacity-50 disabled:cursor-not-allowed">Stop</button>
+                    <button id="clearButton" class="py-3 bg-white text-gray-500 font-bold rounded-xl ring-1 ring-gray-200 hover:bg-gray-50 transition-all">Clear</button>
+                </div>
+            </div>
+
+            <div id="status" class="text-[11px] text-center font-bold text-gray-400 uppercase tracking-widest pt-2">Ready</div>
+        </div>
+    </div>
+
+    <script>
+        const synth = window.speechSynthesis;
+        const textInput = document.getElementById('textInput');
+        const voiceSelect = document.getElementById('voiceSelect');
+        const speakButton = document.getElementById('speakButton');
+        const stopButton = document.getElementById('stopButton');
+        const clearButton = document.getElementById('clearButton');
+        const statusDiv = document.getElementById('status');
+        const charCount = document.getElementById('charCount');
+
+        let voices = [];
+
+        function populateVoices() {
+            voices = synth.getVoices();
+            voiceSelect.innerHTML = voices
+                .map(v => `<option value="${v.name}">${v.name} (${v.lang})</option>`)
+                .join('');
+        }
+
+        if (synth.onvoiceschanged !== undefined) synth.onvoiceschanged = populateVoices;
+        populateVoices();
+
+        // Update Sliders
+        document.querySelectorAll('input[type=range]').forEach(input => {
+            input.addEventListener('input', (e) => {
+                document.getElementById(e.target.id.replace('Input', 'Value')).textContent = e.target.value;
+            });
+        });
+
+        // Char counter
+        textInput.addEventListener('input', () => {
+            charCount.textContent = `${textInput.value.length} characters`;
+        });
+
+        let currentAIAudio = null;
+
+        async function speak() {
+            if (!textInput.value) return;
+
+            if (synth.speaking) synth.cancel();
+            if (currentAIAudio) { currentAIAudio.pause(); currentAIAudio.currentTime = 0; }
+
+            speakButton.disabled = true;
+            stopButton.disabled = false;
+
+            // Check if device is connected to the internet
+            if (navigator.onLine) {
+                statusDiv.textContent = '● GENERATING AI VOICE...';
+                statusDiv.classList.add('text-indigo-600');
+
+                try {
+                    const response = await fetch('/api/speak', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ text: textInput.value })
+                    });
+
+                    if (!response.ok) throw new Error("API request failed");
+
+                    const audioBlob = await response.blob();
+                    const audioUrl = URL.createObjectURL(audioBlob);
+                    
+                    currentAIAudio = new Audio(audioUrl);
+                    currentAIAudio.play();
+
+                    currentAIAudio.onended = () => resetUI();
+
+                } catch (err) {
+                    console.error("Falling back to offline voice:", err);
+                    playOfflineVoice();
+                }
+            } else {
+                playOfflineVoice();
+            }
+        }
+
+        function playOfflineVoice() {
+            statusDiv.textContent = '● SPEAKING (OFFLINE MODE)';
+            statusDiv.classList.add('text-indigo-600');
+
+            const utterance = new SpeechSynthesisUtterance(textInput.value);
+            utterance.voice = voices.find(v => v.name === voiceSelect.value);
+            utterance.rate = document.getElementById('rateInput').value;
+            utterance.pitch = document.getElementById('pitchInput').value;
+
+            utterance.onend = () => resetUI();
+            synth.speak(utterance);
+        }
+
+        function resetUI() {
+            speakButton.disabled = false;
+            stopButton.disabled = true;
+            statusDiv.textContent = 'READY';
+            statusDiv.classList.remove('text-indigo-600');
+        }
+
+        speakButton.addEventListener('click', speak);
+
+        stopButton.addEventListener('click', () => {
+            synth.cancel();
+            if (currentAIAudio) { currentAIAudio.pause(); currentAIAudio.currentTime = 0; }
+            resetUI();
+        });
+
+        clearButton.addEventListener('click', () => {
+            textInput.value = '';
+            charCount.textContent = '0 characters';
+            synth.cancel();
+            if (currentAIAudio) { currentAIAudio.pause(); currentAIAudio.currentTime = 0; }
+            resetUI();
+        });
+
+        // Register Service Worker for PWA
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('sw.js').catch(err => console.log('SW registration failed:', err));
+            });
+        }
+    </script>
+</body>
+</html>
